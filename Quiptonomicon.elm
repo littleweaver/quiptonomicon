@@ -13,10 +13,17 @@ type alias Model =
     { quotes : List Quote
     , speakerInput : String
     , wordsInput : String
+    , uid : Int
     }
 
 
 type alias Quote =
+    { id : Int
+    , lines : List Line
+    }
+
+
+type alias Line =
     { speaker : String
     , words : String
     }
@@ -29,19 +36,20 @@ type Msg
     | Add
 
 
-newQuote : String -> String -> Quote
-newQuote speaker words =
-    { words = words
-    , speaker = speaker
+newQuote : String -> String -> Int -> Quote
+newQuote speaker words id =
+    { id = id
+    , lines = [ { speaker = speaker, words = words } ]
     }
 
 
 initialModel =
     { speakerInput = ""
     , wordsInput = ""
+    , uid = 3
     , quotes =
-        [ newQuote "David Randolph" "Parsifal is the kind of opera that starts at six o'clock and after it has been going three hours, you look at your watch and it says 6:20."
-        , newQuote "Igor Stravinsky" "Why is it that whenever I hear a piece of music I don't like, it's always by Villa Lobos?"
+        [ newQuote "David Randolph" "Parsifal is the kind of opera that starts at six o'clock and after it has been going three hours, you look at your watch and it says 6:20." 1
+        , newQuote "Igor Stravinsky" "Why is it that whenever I hear a piece of music I don't like, it's always by Villa Lobos?" 2
         ]
     }
 
@@ -59,12 +67,13 @@ update msg model =
         Add ->
             let
                 quoteToAdd =
-                    newQuote model.speakerInput model.wordsInput
+                    newQuote model.speakerInput model.wordsInput model.uid
             in
                 { model
                     | speakerInput = ""
                     , wordsInput = ""
                     , quotes = quoteToAdd :: model.quotes
+                    , uid = model.uid + 1
                 }
 
         UpdateWordsInput content ->
@@ -78,10 +87,16 @@ update msg model =
 -- VIEW
 
 
+renderLine : Line -> Html Msg
+renderLine line =
+    div []
+        [ text (line.speaker ++ ": " ++ line.words) ]
+
+
 renderQuote : Quote -> Html Msg
 renderQuote quote =
     div []
-        [ text (quote.speaker ++ ": " ++ quote.words) ]
+        (List.map renderLine quote.lines)
 
 
 quoteForm : Model -> Html Msg
