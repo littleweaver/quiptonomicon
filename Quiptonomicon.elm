@@ -1,9 +1,16 @@
 module Quiptonomicon exposing (..)
 
+import Line
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
+import Html.Events exposing (onClick)
 import Html.App as Html
+import String
+
+
+main =
+    Html.beginnerProgram { model = init, view = view, update = update }
+
 
 
 -- MODEL
@@ -11,9 +18,14 @@ import Html.App as Html
 
 type alias Model =
     { quotes : List Quote
-    , speakerInput : String
-    , wordsInput : String
+    , newLines : List Line
     , uid : Int
+    }
+
+
+type alias Line =
+    { id : Int
+    , model : Line.Model
     }
 
 
@@ -23,34 +35,24 @@ type alias Quote =
     }
 
 
-type alias Line =
-    { speaker : String
-    , words : String
-    }
-
-
 type Msg
     = NoOp
-    | UpdateSpeakerInput String
-    | UpdateWordsInput String
     | Add
+    | Modify Int Line.Msg
 
 
-newQuote : String -> String -> Int -> Quote
-newQuote speaker words id =
-    { id = id
-    , lines = [ { speaker = speaker, words = words } ]
+newQuote : List Line -> Int -> Quote
+newQuote lines id =
+    { id = 0
+    , lines = lines
     }
 
 
-initialModel =
-    { speakerInput = ""
-    , wordsInput = ""
-    , uid = 3
-    , quotes =
-        [ newQuote "David Randolph" "Parsifal is the kind of opera that starts at six o'clock and after it has been going three hours, you look at your watch and it says 6:20." 1
-        , newQuote "Igor Stravinsky" "Why is it that whenever I hear a piece of music I don't like, it's always by Villa Lobos?" 2
-        ]
+init : Model
+init =
+    { newLines = [ Line 3 (Line.init "" "") ]
+    , uid = 4
+    , quotes = []
     }
 
 
@@ -64,23 +66,67 @@ update msg model =
         NoOp ->
             model
 
+        Modify id msg ->
+            let
+                newLinesComplete =
+                    List.all lineIsComplete model.newLines
+
+                updatedNewLines =
+                    List.map (updateHelp id msg) model.newLines
+
+                additionalLines =
+                    if newLinesComplete then
+                        [ Line model.uid (Line.init "" "") ]
+                    else
+                        []
+            in
+                { model
+                    | newLines = updatedNewLines ++ additionalLines
+                    , uid =
+                        if newLinesComplete then
+                            model.uid + 1
+                        else
+                            model.uid
+                }
+
         Add ->
             let
                 quoteToAdd =
-                    newQuote model.speakerInput model.wordsInput model.uid
+                    newQuote (List.filter lineIsComplete model.newLines) 0
+
+                isInvalid =
+                    List.isEmpty quoteToAdd.lines
             in
-                { model
-                    | speakerInput = ""
-                    , wordsInput = ""
-                    , quotes = quoteToAdd :: model.quotes
-                    , uid = model.uid + 1
-                }
+                if isInvalid then
+                    model
+                else
+                    { model
+                        | newLines = [ Line model.uid (Line.init "" "") ]
+                        , quotes = quoteToAdd :: model.quotes
+                        , uid = model.uid + 1
+                    }
 
-        UpdateWordsInput content ->
-            { model | wordsInput = content }
 
-        UpdateSpeakerInput content ->
-            { model | speakerInput = content }
+lineIsComplete : Line -> Bool
+lineIsComplete line =
+    let
+        wordsEmpty =
+            String.isEmpty line.model.words
+
+        speakerEmpty =
+            String.isEmpty line.model.speaker
+    in
+        (not wordsEmpty) && (not speakerEmpty)
+
+
+updateHelp : Int -> Line.Msg -> Line -> Line
+updateHelp targetId msg { id, model } =
+    Line id
+        (if targetId == id then
+            Line.update msg model
+         else
+            model
+        )
 
 
 
@@ -88,45 +134,24 @@ update msg model =
 
 
 renderLine : Line -> Html Msg
-renderLine line =
-    div []
-        [ text (line.speaker ++ ": " ++ line.words) ]
+renderLine { id, model } =
+    Html.map (\_ -> NoOp) (Line.view model)
 
 
 renderQuote : Quote -> Html Msg
 renderQuote quote =
     div []
-        (List.map renderLine quote.lines)
+        ((List.map renderLine quote.lines) ++ [ hr [] [] ])
 
 
-quoteForm : Model -> Html Msg
-quoteForm model =
-    div []
-        [ input
-            [ type' "text"
-            , placeholder "Dehaka"
-            , value model.speakerInput
-            , name "speaker"
-            , autofocus True
-            , onInput UpdateSpeakerInput
-            ]
-            []
-        , input
-            [ type' "text"
-            , placeholder "I am Dehaka, one who collects."
-            , value model.wordsInput
-            , name "words"
-            , onInput UpdateWordsInput
-            ]
-            []
-        ]
+renderLineForm : Line -> Html Msg
+renderLineForm { id, model } =
+    Html.map (Modify id) (Line.form model)
 
 
 view : Model -> Html Msg
 view model =
     div []
-        (List.map renderQuote model.quotes ++ [ quoteForm model, button [ onClick Add ] [ text "Add" ] ])
-
-
-main =
-    Html.beginnerProgram { model = initialModel, view = view, update = update }
+        <| List.map renderQuote model.quotes
+        ++ List.map renderLineForm model.newLines
+        ++ [ button [ onClick Add ] [ text "Add" ] ]
