@@ -1,15 +1,21 @@
 module Quiptonomicon exposing (..)
 
-import Line
 import Html exposing (..)
+import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Html.App as Html
+import Line
+import Quote
 import String
 
 
 main =
-    Html.beginnerProgram { model = init, view = view, update = update }
+    Html.program
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }
 
 
 
@@ -39,40 +45,41 @@ type Msg
     = NoOp
     | Add
     | Modify Int Line.Msg
+    | NewQuote Quote.Msg
 
 
-newQuote : List Line -> Int -> Quote
-newQuote lines id =
+createQuote : List Line -> Int -> Quote
+createQuote lines id =
     { id = 0
     , lines = lines
     }
 
 
-init : Model
+init : (Model, Cmd Msg)
 init =
-    { newLines = [ Line 3 (Line.init "" "") ]
-    , uid = 4
+    ({ newLines = [ Line 0 (Line.init "" "") ]
+    , uid = 1
     , quotes = []
-    }
+    }, Cmd.none)
 
 
 
 -- UPDATE
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         NoOp ->
-            model
+            ( model, Cmd.none )
 
         Modify id msg ->
             let
-                newLinesComplete =
-                    List.all lineIsComplete model.newLines
-
                 updatedNewLines =
                     List.map (updateHelp id msg) model.newLines
+
+                newLinesComplete =
+                    List.all lineIsComplete updatedNewLines
 
                 additionalLines =
                     if newLinesComplete then
@@ -80,31 +87,41 @@ update msg model =
                     else
                         []
             in
-                { model
+                ( { model
                     | newLines = updatedNewLines ++ additionalLines
                     , uid =
                         if newLinesComplete then
                             model.uid + 1
                         else
                             model.uid
-                }
+                  }
+                , Cmd.none
+                )
+
+        NewQuote _ ->
+            ( model, Cmd.none)
 
         Add ->
             let
                 quoteToAdd =
-                    newQuote (List.filter lineIsComplete model.newLines) 0
+                    createQuote (List.filter lineIsComplete model.newLines) 0
 
                 isInvalid =
                     List.isEmpty quoteToAdd.lines
+
+                (newQuote, newQuoteCmds) =
+                    Quote.update Quote.SaveQuote newQuote
             in
                 if isInvalid then
-                    model
+                    ( model, Cmd.none)
                 else
-                    { model
+                    ( { model
                         | newLines = [ Line model.uid (Line.init "" "") ]
                         , quotes = quoteToAdd :: model.quotes
                         , uid = model.uid + 1
-                    }
+                      }
+                    , Cmd.map NewQuote newQuoteCmds
+                    )
 
 
 lineIsComplete : Line -> Bool
@@ -155,3 +172,12 @@ view model =
         <| List.map renderQuote model.quotes
         ++ List.map renderLineForm model.newLines
         ++ [ button [ onClick Add ] [ text "Add" ] ]
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
