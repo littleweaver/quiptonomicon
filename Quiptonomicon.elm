@@ -37,7 +37,7 @@ type alias Line =
 
 type alias Quote =
     { id : Int
-    , lines : List Line
+    , model : Quote.Model
     }
 
 
@@ -50,24 +50,28 @@ type Msg
 
 createQuote : List Line -> Int -> Quote
 createQuote lines id =
-    { id = 0
-    , lines = lines
+    { id = id
+    , model =
+        List.map .model lines
+        --maybe we will need the line ids later??
     }
 
 
-init : (Model, Cmd Msg)
+init : ( Model, Cmd Msg )
 init =
-    ({ newLines = [ Line 0 (Line.init "" "") ]
-    , uid = 1
-    , quotes = []
-    }, Cmd.none)
+    ( { newLines = [ Line 0 (Line.init "" "") ]
+      , uid = 1
+      , quotes = []
+      }
+    , Cmd.none
+    )
 
 
 
 -- UPDATE
 
 
-update : Msg -> Model -> (Model, Cmd Msg)
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NoOp ->
@@ -99,7 +103,7 @@ update msg model =
                 )
 
         NewQuote _ ->
-            ( model, Cmd.none)
+            ( model, Cmd.none )
 
         Add ->
             let
@@ -107,13 +111,13 @@ update msg model =
                     createQuote (List.filter lineIsComplete model.newLines) 0
 
                 isInvalid =
-                    List.isEmpty quoteToAdd.lines
+                    List.isEmpty quoteToAdd.model
 
-                (newQuote, newQuoteCmds) =
-                    Quote.update Quote.SaveQuote newQuote
+                ( newQuote, newQuoteCmds ) =
+                    Quote.update Quote.SaveQuote quoteToAdd.model
             in
                 if isInvalid then
-                    ( model, Cmd.none)
+                    ( model, Cmd.none )
                 else
                     ( { model
                         | newLines = [ Line model.uid (Line.init "" "") ]
@@ -150,15 +154,15 @@ updateHelp targetId msg { id, model } =
 -- VIEW
 
 
-renderLine : Line -> Html Msg
-renderLine { id, model } =
-    Html.map (\_ -> NoOp) (Line.view model)
+renderLine : Line.Model -> Html Msg
+renderLine line =
+    Html.map (\_ -> NoOp) (Line.view line)
 
 
 renderQuote : Quote -> Html Msg
 renderQuote quote =
     div []
-        ((List.map renderLine quote.lines) ++ [ hr [] [] ])
+        ((List.map renderLine quote.model) ++ [ hr [] [] ])
 
 
 renderLineForm : Line -> Html Msg

@@ -5,6 +5,7 @@ import Line
 import Http exposing (RawError, Response, send, defaultSettings, string)
 import Task
 import Json.Decode as Json
+import Json.Encode exposing (..)
 
 
 -- MODEL
@@ -25,7 +26,7 @@ init lines =
 
 type Msg
     = SaveQuote
-    | SaveSucceeded Int
+    | SaveSucceeded (List Int)
     | SaveFail Http.Error
 
 
@@ -33,7 +34,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SaveQuote ->
-            ( model, getQuoteId )
+            ( model, getQuoteId model )
 
         SaveSucceeded quoteId ->
             ( model, Cmd.none )
@@ -65,6 +66,24 @@ subscriptions model =
 -- HTTP
 
 
+toValue : Int -> Line.Model -> Value
+toValue quoteId line =
+    Json.Encode.object
+        [ ( "speaker", Json.Encode.string line.speaker )
+        , ( "words", Json.Encode.string line.words )
+        , ( "quotation_id", Json.Encode.int quoteId )
+        ]
+
+
+linesJson : Int -> Model -> String
+linesJson quoteId lines =
+    let
+        lineValues =
+            list (List.map (toValue quoteId) lines)
+    in
+        encode 0 lineValues
+
+
 postPreferRepresentation : String -> Http.Body -> Platform.Task Http.Error Int
 postPreferRepresentation url body =
     Http.fromJson decodeQuoteId
@@ -79,18 +98,42 @@ postPreferRepresentation url body =
             }
 
 
-getQuoteId : Cmd Msg
-getQuoteId =
+postLines : String -> Http.Body -> Platform.Task Http.Error (List Int)
+postLines url body =
+    Http.fromJson decodeLineIds
+        <| send defaultSettings
+            { verb = "POST"
+            , headers =
+                [ ( "Prefer", "return=representation" )
+                , ( "Content-Type", "application/json" )
+                ]
+            , url = url
+            , body = body
+            }
+
+
+getQuoteId : Model -> Cmd Msg
+getQuoteId model =
     let
         url =
             "//localhost:3000/quotations"
 
+        url2 =
+            "//localhost:3000/lines"
+
         body =
-            string """{"created_at": "now()"}"""
+            Http.string """{"created_at": "now()"}"""
     in
-        Task.perform SaveFail SaveSucceeded (postPreferRepresentation url body)
+        Task.perform SaveFail
+            SaveSucceeded
+            ((postPreferRepresentation url body) `Task.andThen` (\theQuoteId -> postLines url2 (Http.string (linesJson theQuoteId model))))
 
 
 decodeQuoteId : Json.Decoder Int
 decodeQuoteId =
     Json.at [ "id" ] Json.int
+
+
+decodeLineIds : Json.Decoder (List Int)
+decodeLineIds =
+    Json.list (Json.at [ "id" ] Json.int)
