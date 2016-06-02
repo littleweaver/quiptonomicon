@@ -4,9 +4,12 @@ import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http
+import Json.Decode as Decode exposing (Decoder, (:=))
 import Line
 import Quote
 import String
+import Task
 
 
 main =
@@ -46,6 +49,8 @@ type Msg
     | Add
     | Modify Int Line.Msg
     | NewQuote Quote.Msg
+    | FetchSucceed (List Quote)
+    | FetchFail Http.Error
 
 
 createQuote : List Line -> Int -> Quote
@@ -63,7 +68,7 @@ init =
       , uid = 1
       , quotes = []
       }
-    , Cmd.none
+    , getQuotations
     )
 
 
@@ -76,6 +81,13 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        FetchFail _ ->
+            -- TODO: I guess indicate an error?
+            ( { model | quotes = [ { id = 0, model = [ { speaker = "poop", words = "scoop" } ] } ] }, Cmd.none )
+
+        FetchSucceed quotes ->
+            ( { model | quotes = quotes }, Cmd.none )
 
         Modify id msg ->
             let
@@ -185,3 +197,34 @@ view model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.none
+
+
+
+-- HTTP
+
+
+getQuotations : Cmd Msg
+getQuotations =
+    let
+        url =
+            "//localhost:3000/quotations?select=id,lines{speaker,words}"
+    in
+        Task.perform FetchFail FetchSucceed (Http.get decoderQuotes url)
+
+
+decoderQuote : Decoder Quote
+decoderQuote =
+    Decode.object2 Quote
+        ("id" := Decode.int)
+        ("lines"
+            := Decode.list
+                (Decode.object2 Line.Model
+                    ("speaker" := Decode.string)
+                    ("words" := Decode.string)
+                )
+        )
+
+
+decoderQuotes : Decoder (List Quote)
+decoderQuotes =
+    Decode.list decoderQuote
