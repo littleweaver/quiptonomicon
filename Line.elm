@@ -50,7 +50,7 @@ form model =
     div []
         [ input
             [ type' "text"
-            , placeholder "Dehaka"
+            , placeholder "Speaker"
             , value model.speaker
             , name "speaker"
             , autofocus True
@@ -59,7 +59,7 @@ form model =
             []
         , input
             [ type' "text"
-            , placeholder "I am Dehaka, one who collects."
+            , placeholder "What was said"
             , value model.words
             , name "words"
             , onInput UpdateWords

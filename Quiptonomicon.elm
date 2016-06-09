@@ -184,11 +184,16 @@ renderLineForm { id, model } =
 
 view : Model -> Html Msg
 view model =
-    div []
-        <| List.map renderQuote model.quotes
-        ++ List.map renderLineForm model.newLines
-        ++ [ button [ onClick Add ] [ text "Add" ] ]
-
+    div [ class "wrapper" ]
+        [ header [] []
+        , div [ class "body" ]
+            [ main' [ class "body--content" ]
+                  (List.map renderQuote model.quotes)
+            , aside [ class "body--addquote" ]
+                    ((List.map renderLineForm model.newLines) ++ [ button [ onClick Add ] [ text "Add" ] ])
+            ]
+        , footer [] []
+        ]
 
 
 -- SUBSCRIPTIONS
