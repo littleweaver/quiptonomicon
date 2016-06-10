@@ -116,10 +116,10 @@ getQuoteId : Model -> Cmd Msg
 getQuoteId model =
     let
         url =
-            "//localhost:3000/quotations"
+            "//limitless-tundra-10904.herokuapp.com/quotations"
 
         url2 =
-            "//localhost:3000/lines"
+            "//limitless-tundra-10904.herokuapp.com/lines"
 
         body =
             Http.string """{"created_at": "now()"}"""

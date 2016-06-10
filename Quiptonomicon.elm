@@ -212,7 +212,7 @@ getQuotations : Cmd Msg
 getQuotations =
     let
         url =
-            "//localhost:3000/quotations?select=id,lines{speaker,words}"
+            "//limitless-tundra-10904.herokuapp.com/quotations?select=id,lines{speaker,words}"
     in
         Task.perform FetchFail FetchSucceed (Http.get decoderQuotes url)
 
