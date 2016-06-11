@@ -1,5 +1,6 @@
 module Quiptonomicon exposing (..)
 
+import Exts.RemoteData exposing (..)
 import Html exposing (..)
 import Html.App as Html
 import Html.Attributes exposing (..)
@@ -26,7 +27,7 @@ main =
 
 
 type alias Model =
-    { quotes : List Quote
+    { quotes : WebData (List Quote)
     , newLines : List Line
     , uid : Int
     }
@@ -66,7 +67,7 @@ init : ( Model, Cmd Msg )
 init =
     ( { newLines = [ Line 0 (Line.init "" "") ]
       , uid = 1
-      , quotes = []
+      , quotes = Loading
       }
     , getQuotations
     )
@@ -82,12 +83,11 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        FetchFail _ ->
-            -- TODO: I guess indicate an error?
-            ( { model | quotes = [ { id = 0, model = [ { speaker = "poop", words = "scoop" } ] } ] }, Cmd.none )
+        FetchFail error ->
+            ( { model | quotes = Failure error }, Cmd.none )
 
         FetchSucceed quotes ->
-            ( { model | quotes = quotes }, Cmd.none )
+            ( { model | quotes = Success quotes }, Cmd.none )
 
         Modify id msg ->
             let
@@ -133,7 +133,7 @@ update msg model =
                 else
                     ( { model
                         | newLines = [ Line model.uid (Line.init "" "") ]
-                        , quotes = quoteToAdd :: model.quotes
+                        , quotes = map ((::) quoteToAdd) model.quotes
                         , uid = model.uid + 1
                       }
                     , Cmd.map NewQuote newQuoteCmds
@@ -182,18 +182,35 @@ renderLineForm { id, model } =
     Html.map (Modify id) (Line.form model)
 
 
-view : Model -> Html Msg
-view model =
+renderQuotes : List Quote -> List Line -> Html Msg
+renderQuotes quotes newLines =
     div [ class "wrapper" ]
         [ header [] []
         , div [ class "body" ]
             [ main' [ class "body--content" ]
-                  (List.map renderQuote model.quotes)
+                (List.map renderQuote quotes)
             , aside [ class "body--addquote" ]
-                    ((List.map renderLineForm model.newLines) ++ [ button [ onClick Add ] [ text "Add" ] ])
+                ((List.map renderLineForm newLines) ++ [ button [ onClick Add ] [ text "Add" ] ])
             ]
         , footer [] []
         ]
+
+
+view : Model -> Html Msg
+view model =
+    case model.quotes of
+        Loading ->
+            div [] [ text "loading" ]
+
+        Success quotes ->
+            renderQuotes quotes model.newLines
+
+        NotAsked ->
+            div [] [ text "notasked" ]
+
+        Failure error ->
+            div [] [ text (toString error) ]
+
 
 
 -- SUBSCRIPTIONS
